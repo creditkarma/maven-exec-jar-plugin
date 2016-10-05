@@ -8,7 +8,7 @@
   <name>exec-jar-plugin Maven Mojo</name>
 
   <description>Creates executable jars containing their dependent jars instead of exploding the dependent jars into the main jar</description>
-  <url>https://github.com/hunterpayne-ck/maven-exec-plugin</url>
+  <url>https://github.com/creditkarma/maven-exec-jar-plugin.git</url>
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
