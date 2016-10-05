@@ -28,15 +28,6 @@ determine which jar file to exec**
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
       <version>1.0.0</version>
-      <dependencies>
-        <dependency>
-          <groupId>com.sun</groupId>
-          <artifactId>tools</artifactId>
-          <version>1.8</version>
-          <scope>system</scope>
-          <systemPath>${java.home}/../lib/tools.jar</systemPath>
-        </dependency>
-      </dependencies>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -84,15 +75,6 @@ exec-jar-plugin like so:
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
       <version>1.0.0</version>
-      <dependencies>
-        <dependency>
-          <groupId>com.sun</groupId>
-          <artifactId>tools</artifactId>
-          <version>1.8</version>
-          <scope>system</scope>
-          <systemPath>${java.home}/../lib/tools.jar</systemPath>
-        </dependency>
-      </dependencies>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -148,15 +130,6 @@ executable jar file name when it is published to Artifactory.
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
       <version>1.0.0</version>
-      <dependencies>
-        <dependency>
-          <groupId>com.sun</groupId>
-          <artifactId>tools</artifactId>
-          <version>1.8</version>
-          <scope>system</scope>
-          <systemPath>${java.home}/../lib/tools.jar</systemPath>
-        </dependency>
-      </dependencies>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -195,15 +168,6 @@ An example showing two similar entry points
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
       <version>1.0.0</version>
-      <dependencies>
-        <dependency>
-          <groupId>com.sun</groupId>
-          <artifactId>tools</artifactId>
-          <version>1.8</version>
-          <scope>system</scope>
-          <systemPath>${java.home}/../lib/tools.jar</systemPath>
-        </dependency>
-      </dependencies>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -249,15 +213,6 @@ A complete example:
         <groupId>com.creditkarma</groupId>
         <artifactId>exec-jar-plugin</artifactId>
         <version>1.0.0</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.sun</groupId>
-            <artifactId>tools</artifactId>
-            <version>1.8</version>
-            <scope>system</scope>
-            <systemPath>${java.home}/../lib/tools.jar</systemPath>
-          </dependency>
-        </dependencies>
         <executions>
           <execution>
             <id>consumer-exec-jar</id>
