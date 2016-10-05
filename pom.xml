@@ -18,6 +18,12 @@
     </license>
   </licenses>
 
+  <parent>
+    <groupId>org.sonatype.oss</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>7</version>
+  </parent>
+  
   <scm>
     <connection>scm:git:git://github.com/creditkarma/maven-exec-jar-plugin.git</connection>
     <developerConnection>scm:git:ssh://github.com:creditkarma/maven-exec-jar-plugin.git</developerConnection>
@@ -33,6 +39,20 @@
     </developer>
   </developers>
 
+  <distributionManagement>
+    <!-- Repository for snapshots -->
+    <snapshotRepository>
+      <id>sonatype-nexus-snapshots</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <!-- Repository for releases -->
+    <repository>
+      <id>nexus-releases</id>
+      <name>Nexus Release Repository</name>
+      <url>http://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+  
   <profiles>
     <profile>
       <id>default-tools.jar</id>
