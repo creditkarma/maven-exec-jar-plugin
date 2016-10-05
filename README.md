@@ -164,8 +164,8 @@ executable jar file name when it is published to Artifactory.
             <attachToBuild>true</attachToBuild>
             <classifier>consumer</classifier>
             <filename>${project.build.finalName}.consumer</filename>
-            <mainclass>com.pinterest.secor.main.ConsumerMain</mainclass>
-            <scriptTemplate>src/main/resources/secor.sh.tpl</scriptTemplate>
+            <mainclass>com.creditkarma.boot.ConsumerMain</mainclass>
+            <scriptTemplate>src/main/resources/myApp.sh.tpl</scriptTemplate>
           </configuration>
           <goals>
             <goal>exec-jar</goal>
@@ -211,8 +211,8 @@ An example showing two similar entry points
             <attachToBuild>true</attachToBuild>
             <classifier>consumer</classifier>
             <filename>${project.build.finalName}.consumer</filename>
-            <mainclass>com.pinterest.secor.main.ConsumerMain</mainclass>
-            <scriptTemplate>src/main/resources/secor.sh.tpl</scriptTemplate>
+            <mainclass>com.creditkarma.boot.ConsumerMain</mainclass>
+            <scriptTemplate>src/main/resources/myApp.sh.tpl</scriptTemplate>
           </configuration>
           <goals>
             <goal>exec-jar</goal>
@@ -224,8 +224,8 @@ An example showing two similar entry points
             <attachToBuild>true</attachToBuild>
             <classifier>consumer2</classifier>
             <filename>${project.build.finalName}.consumer2</filename>
-            <mainclass>com.pinterest.secor.main.ConsumerMain2</mainclass>
-            <scriptTemplate>src/main/resources/secor.sh.tpl</scriptTemplate>
+            <mainclass>com.creditkarma.boot.ConsumerMain2</mainclass>
+            <scriptTemplate>src/main/resources/myApp.sh.tpl</scriptTemplate>
           </configuration>
           <goals>
             <goal>exec-jar</goal>
@@ -239,7 +239,7 @@ An example showing two similar entry points
 ```
 
 ### Putting it all together
-A (mostly) complete real-world example (from Secor):
+A complete example:
 
 ```
 <build>
@@ -265,8 +265,8 @@ A (mostly) complete real-world example (from Secor):
               <attachToBuild>true</attachToBuild>
               <classifier>consumer</classifier>
               <filename>${project.build.finalName}.consumer</filename>
-              <mainclass>com.pinterest.secor.main.ConsumerMain</mainclass>
-              <scriptTemplate>src/main/resources/secor.sh.tpl</scriptTemplate>
+              <mainclass>com.creditkarma.boot.ConsumerMain</mainclass>
+              <scriptTemplate>src/main/resources/myApp.sh.tpl</scriptTemplate>
               <binlibs>
                 <fileSet>
                   <directory>${nativeDir}</directory>
@@ -290,8 +290,8 @@ A (mostly) complete real-world example (from Secor):
               <attachToBuild>true</attachToBuild>
               <classifier>logFilePrinter</classifier>
               <filename>${project.build.finalName}.logFilePrinter</filename>
-              <mainclass>com.pinterest.secor.main.LogFilePrinterMain</mainclass>
-              <scriptTemplate>src/main/resources/secor.sh.tpl</scriptTemplate>
+              <mainclass>com.creditkarma.boot.LogFilePrinterMain</mainclass>
+              <scriptTemplate>src/main/resources/myApp.sh.tpl</scriptTemplate>
               <binlibs>
                 <fileSet>
                   <directory>${nativeDir}</directory>
