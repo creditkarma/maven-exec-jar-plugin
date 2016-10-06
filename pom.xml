@@ -3,7 +3,7 @@
   <groupId>com.creditkarma</groupId>
   <artifactId>exec-jar-plugin</artifactId>
   <packaging>maven-plugin</packaging>
-  <version>1.0.0</version>
+  <version>1.0.0-SNAPSHOT</version>
   <name>Executable Jar Maven Plugin</name>
 
   <description>Creates executable jars containing their dependent jars instead of exploding the dependent jars into the main jar</description>
@@ -135,6 +135,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.10.4</version>
         <configuration>
           <quiet>true</quiet>
           <nonavbar>true</nonavbar>
@@ -143,20 +144,20 @@
           <nohelp>true</nohelp>
           <tags>
             <tag>
-	      <name>goal</name>
-	      <placement>X</placement>
+              <name>goal</name>
+              <placement>X</placement>
             </tag>
             <tag>
-	      <name>phase</name>
-	      <placement>X</placement>
+              <name>phase</name>
+              <placement>X</placement>
             </tag>
             <tag>
-	      <name>requiresProject</name>
-	      <placement>X</placement>
+              <name>requiresProject</name>
+              <placement>X</placement>
             </tag>
             <tag>
-	      <name>requiresDependencyResolution</name>
-	      <placement>X</placement>
+              <name>requiresDependencyResolution</name>
+              <placement>X</placement>
             </tag>
           </tags>
         </configuration>
@@ -172,6 +173,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-gpg-plugin</artifactId>
+        <version>1.6</version>
         <executions>
           <execution>
             <id>sign-artifacts</id>
@@ -182,6 +184,13 @@
           </execution>
         </executions>
       </plugin>      
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <configuration>
+          <pushChanges>false</pushChanges>
+        </configuration>
+      </plugin>
     </plugins>
   </build>  
 </project>
