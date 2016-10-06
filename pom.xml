@@ -1,10 +1,9 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.creditkarma</groupId>
   <artifactId>exec-jar-plugin</artifactId>
   <packaging>maven-plugin</packaging>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>Executable Jar Maven Plugin</name>
 
   <description>Creates executable jars containing their dependent jars instead of exploding the dependent jars into the main jar</description>
@@ -133,7 +132,7 @@
           </execution>
         </executions>
       </plugin>
-<!--      <plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <configuration>
@@ -142,6 +141,24 @@
           <notree>true</notree>
           <nocomment>true</nocomment>
           <nohelp>true</nohelp>
+          <tags>
+            <tag>
+	      <name>goal</name>
+	      <placement>X</placement>
+            </tag>
+            <tag>
+	      <name>phase</name>
+	      <placement>X</placement>
+            </tag>
+            <tag>
+	      <name>requiresProject</name>
+	      <placement>X</placement>
+            </tag>
+            <tag>
+	      <name>requiresDependencyResolution</name>
+	      <placement>X</placement>
+            </tag>
+          </tags>
         </configuration>
         <executions>
           <execution>
@@ -151,7 +168,7 @@
             </goals>
           </execution>
         </executions>
-      </plugin> -->
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-gpg-plugin</artifactId>
