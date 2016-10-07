@@ -55,17 +55,38 @@ that launcher script will contain:
 #!/bin/bash
 SCRIPT_NAME=${0}
 JAR_NAME=${SCRIPT_NAME:0:`expr ${#SCRIPT_NAME} - 3`}.jar
-jar xf $JAR_NAME lib/aspectjweaver-JWEAVER_VER.jar
-java -javaagent:lib/aspectjweaver-JWEAVER_VER.jar -jar $JAR_NAME $@`
+java -jar $JAR_NAME $@
 ```
 
-Which includes the magic needed to use the aspectjweaver agent which is used
-by Kamon.
+### Including .so or .dll files in the executable jar
+Sometimes you need to use native libraries or java agents in your application.
+To support this, the exec-jar plugin provides to pieces of functionality.
+First, you can include .so and .dll files directly into the executable jar
+file.  Do this by using the biglibs tag and including a set of files to be
+included into the executable jar file.  Then in your launcher script,
+extract out the necessary .so or .dll files and they will be automagically
+added to your LD_LIBRARY_PATH for use by your application.
 
-### A more realistic basic example
-The previous example would not work as the .so files needed by kamon would
-not be provided.  To do this, we need to add some extra configuration to the
-exec-jar-plugin like so:
+Second, the generated launcher script can be customized.  To do so, just
+create a file called script.tpl and place it into the same directory as the
+pom.xml file.  This allows you to customize the generated launcher script.
+The default launcher script is:
+
+```
+#!/bin/bash
+SCRIPT_NAME=${0}
+JAR_NAME=${SCRIPT_NAME:0:`expr ${#SCRIPT_NAME} - 3`}.jar
+java EXTRA_ARGS -jar $JAR_NAME $@
+```
+
+In this script template you can place extra JVM arguments, javaagent calls
+and any other command line argument to Java that can't be passed into your
+application any other way.  The EXTRA_ARGS part is replaced by the value
+you place into the extraLauncherArgs which defaults to nothing (ie the
+empty string).
+
+Here is a real world example which launches with the correct extra information
+to start Kamon.
 
 ```
 <build>
@@ -92,7 +113,6 @@ exec-jar-plugin like so:
                 </includes>
               </fileSet>
             </binlibs>
-            <aspectjweaverVersion>${aspectjweaver.version}</aspectjweaverVersion>
             <extraLauncherArgs>-Dkamon.auto-start=true</extraLauncherArgs>
           </configuration>
           <goals>
@@ -106,11 +126,15 @@ exec-jar-plugin like so:
 </build>
 ```
 
-The binlibs adds native libs that will automagically be added to the
-LD_LIBRARY_PATH (ie the -Djava.library.path command line arg).
-The aspectJweaverVersion ensures that the correct version of the aspectJweaver
-jar is used.  The extraLauncherArgs allow for extra system/environmental
-variables to be added as the default in the launcher script.
+and the customized script template (ie script.tpl):
+```
+#!/bin/bash
+SCRIPT_NAME=${0}
+JAR_NAME=${SCRIPT_NAME:0:`expr ${#SCRIPT_NAME} - 3`}.jar
+jar xf $JAR_NAME lib/aspectjweaver-1.8.9.jar
+
+java -javaagent:lib/aspectjweaver-1.8.9.jar EXTRA_ARGS -jar $JAR_NAME $@
+```
 
 ### An example with a custom filename
 To set a custom filename, two values need to be added to the configuration:
