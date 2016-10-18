@@ -1,4 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
 
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 package com.creditkarma.plugin;
 
 import java.io.*;
@@ -17,7 +34,6 @@ import java.util.regex.*;
 import java.nio.file.Paths;
 import java.nio.charset.Charset;
 
-//import org.apache.commons.io.IOUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.FileSet;
@@ -266,47 +282,24 @@ public class ExecJarMojo extends AbstractMojo {
 		new File(this.outputDirectory, "classes");
 	    File jarClClassFile =
 		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/JarClassLoader.class");
+			 "com/creditkarma/plugin/JarOfJarsClassLoader.class");
 	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
 	    jarClClassFile =
 		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/JarClassLoader$1.class");
+			 "com/creditkarma/plugin/JarOfJarsClassLoader" +
+			 "$JarOfJarsConnection.class");
 	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
 	    jarClClassFile =
 		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/JarClassLoader$2.class");
+			 "com/creditkarma/plugin/JarOfJarsClassLoader" +
+			 "$JarOfJarsURLStreamHandler.class");
 	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/" +
-			 "JarClassLoader$JarClassLoaderException.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/" +
-			 "JarClassLoader$JarEntryInfo.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/" +
-			 "JarClassLoader$JarFileInfo.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/" +
-			 "JarClassLoader$LogArea.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/" +
-			 "JarClassLoader$LogLevel.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-
+	    
             File execScriptFile =
 		new File(outputDirectory, filename + ".executable.sh");
 	    String scriptSrc = constructLauncherScript();
 	    FileOutputStream fos = new FileOutputStream(execScriptFile);
-	    //IOUtils.write(scriptSrc, fos);
+
 	    fos.write(scriptSrc.getBytes("UTF8"));
 	    fos.flush();
 	    fos.close();
@@ -484,10 +477,10 @@ public class ExecJarMojo extends AbstractMojo {
 	String launcherMainClass) {
 
 	return "package " + launcherPackage +
-	    ";\n\nimport com.creditkarma.plugin.JarClassLoader;\n\n" +
+	    ";\n\nimport com.creditkarma.plugin.JarOfJarsClassLoader;\n\n" +
 	    "public class " + launcherMainClass +
 	    " {\n\n  public static void main(String[] args) {\n" +
-	    "    JarClassLoader jcl = new JarClassLoader();\n" +
+	    "    JarOfJarsClassLoader jcl = new JarOfJarsClassLoader();\n" +
 	    "    try {\n      jcl.invokeMain(\"" +
 	    mainClass + "\", args);\n    } catch (Throwable e) {\n" +
 	    "      e.printStackTrace();\n    }\n  }\n}";
@@ -555,13 +548,13 @@ public class ExecJarMojo extends AbstractMojo {
 
 	ClassLoader cl = getClass().getClassLoader();
 	InputStream srcIn =
-	    cl.getResourceAsStream("JarClassLoader.java");
+	    cl.getResourceAsStream("JarOfJarsClassLoader.java");
 	File srcOutputDirectory =
 	    new File(outputDirectory, "com/creditkarma/plugin/");
 	verifyIsDirectory(srcOutputDirectory);
 	
 	File jarClSrcFile =
-	    new File(srcOutputDirectory, "JarClassLoader.java");
+	    new File(srcOutputDirectory, "JarOfJarsClassLoader.java");
 	FileOutputStream srcOut = new FileOutputStream(jarClSrcFile);
 	copy(srcIn, srcOut);
 	srcOut.flush();
