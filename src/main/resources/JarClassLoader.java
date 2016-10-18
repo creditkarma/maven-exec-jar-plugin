@@ -294,7 +294,7 @@ public class JarClassLoader extends ClassLoader {
 			 urlTopJar, e.toString());
                 return;
             }
-        }        
+        }
         if ("file".equals(protocol)) {
             // Protocol 'file' - application launched from exploded dir or
 	    // JAR 
