@@ -294,7 +294,7 @@ public class ExecJarMojo extends AbstractMojo {
 			 "com/creditkarma/plugin/JarOfJarsClassLoader" +
 			 "$JarOfJarsURLStreamHandler.class");
 	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    
+
             File execScriptFile =
 		new File(outputDirectory, filename + ".executable.sh");
 	    String scriptSrc = constructLauncherScript();
