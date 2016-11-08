@@ -54,8 +54,8 @@ that launcher script will contain:
 ```
 #!/bin/bash
 SCRIPT_NAME=${0}
-JAR_NAME=${SCRIPT_NAME:0:`expr ${#SCRIPT_NAME} - 3`}.jar
-java -jar $JAR_NAME $@
+JAR_DIR_PREFIX=$(dirname "${SCRIPT_NAME}")
+java -jar $JAR_DIR_PREFIX/JAR_NAME $@
 ```
 
 ### Including .so or .dll files in the executable jar
