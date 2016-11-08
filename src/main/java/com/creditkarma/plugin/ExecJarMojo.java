@@ -502,7 +502,11 @@ public class ExecJarMojo extends AbstractMojo {
 
 	pattern = Pattern.compile("EXTRA_ARGS");
 	matcher = pattern.matcher(scriptSrc);
-	return matcher.replaceAll(extraLauncherArgs);
+	scriptSrc = matcher.replaceAll(extraLauncherArgs);
+
+	pattern = Pattern.compile("JAR_NAME");
+	matcher = pattern.matcher(scriptSrc);
+	return matcher.replaceAll(filename + ".executable.jar");
     }
 
     private void verifyIsDirectory(File dir) throws Exception {
