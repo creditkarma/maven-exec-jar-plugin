@@ -75,8 +75,8 @@ The default launcher script is:
 ```
 #!/bin/bash
 SCRIPT_NAME=${0}
-JAR_NAME=${SCRIPT_NAME:0:`expr ${#SCRIPT_NAME} - 3`}.jar
-java EXTRA_ARGS -jar $JAR_NAME $@
+JAR_DIR_PREFIX=$(dirname "${SCRIPT_NAME}")
+java EXTRA_ARGS -jar $JAR_DIR_PREFIX/JAR_NAME $@
 ```
 
 In this script template you can place extra JVM arguments, javaagent calls
@@ -130,10 +130,10 @@ and the customized script template (ie script.tpl):
 ```
 #!/bin/bash
 SCRIPT_NAME=${0}
-JAR_NAME=${SCRIPT_NAME:0:`expr ${#SCRIPT_NAME} - 3`}.jar
-jar xf $JAR_NAME lib/aspectjweaver-1.8.9.jar
+JAR_DIR_PREFIX=$(dirname "${SCRIPT_NAME}")
+jar xf $JAR_DIR_PREFIX/JAR_NAME lib/aspectjweaver-1.8.9.jar
 
-java -javaagent:lib/aspectjweaver-1.8.9.jar EXTRA_ARGS -jar $JAR_NAME $@
+java -javaagent:lib/aspectjweaver-1.8.9.jar EXTRA_ARGS -jar $JAR_DIR_PREFIX/JAR_NAME $@
 ```
 
 ### An example with a custom filename
