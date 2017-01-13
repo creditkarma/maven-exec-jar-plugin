@@ -185,7 +185,7 @@ public class ExecJarMojo extends AbstractMojo {
         try {
             // Create the target file
             File execJarFile =
-		new File(outputDirectory, filename + ".executable.jar");
+		new File(outputDirectory, filename + "-executable.jar");
 
 	    Manifest manifest = getManifest();
 	    String mainClass =
@@ -296,7 +296,7 @@ public class ExecJarMojo extends AbstractMojo {
 	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
 
             File execScriptFile =
-		new File(outputDirectory, filename + ".executable.sh");
+		new File(outputDirectory, filename + "-executable.sh");
 	    String scriptSrc = constructLauncherScript();
 	    FileOutputStream fos = new FileOutputStream(execScriptFile);
 
@@ -333,7 +333,7 @@ public class ExecJarMojo extends AbstractMojo {
 	getLog().info("Using main class " + this.mainClass);
         getLog().info("Exec-Jar file: " +
 		      outputDirectory.getAbsolutePath() + File.separator +
-		      filename + ".executable.jar");
+		      filename + "-executable.jar");
     }
 
     private Manifest getManifest() throws IOException {
@@ -506,7 +506,7 @@ public class ExecJarMojo extends AbstractMojo {
 
 	pattern = Pattern.compile("JAR_NAME");
 	matcher = pattern.matcher(scriptSrc);
-	return matcher.replaceAll(filename + ".executable.jar");
+	return matcher.replaceAll(filename + "-executable.jar");
     }
 
     private void verifyIsDirectory(File dir) throws Exception {
