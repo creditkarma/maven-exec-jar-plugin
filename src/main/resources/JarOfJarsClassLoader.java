@@ -102,7 +102,7 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
     public static final String KEY_LOGGER_LEVEL =
         "JarOfJarsClassLoader.logger.level";
 
-    private static Level logLevel = Level.FINEST; //INFO;
+    private static Level logLevel = Level.INFO;
     private static PrintStream logger = null;
 
     // contains classes and native libraries
