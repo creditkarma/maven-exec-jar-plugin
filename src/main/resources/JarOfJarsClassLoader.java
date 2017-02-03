@@ -44,6 +44,8 @@ import java.util.Arrays;
 import java.util.Vector;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Enumeration;
 import java.util.logging.Level;
 import java.util.jar.*;
@@ -100,13 +102,15 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
     public static final String KEY_LOGGER_LEVEL =
         "JarOfJarsClassLoader.logger.level";
 
-    private static Level logLevel = Level.INFO;
+    private static Level logLevel = Level.FINEST; //INFO;
     private static PrintStream logger = null;
 
     // contains classes and native libraries
     private Map<String, byte[]> loadedClassBytes;
     // contains other things in the jars plus .class files so codeweaving works
     private Map<String, Map<String, byte[]>> loadedResources;
+    // contains directories/packages in the jar
+    private Set<String> loadedDirectories;
     
     private ProtectionDomain topDomain;
     private final byte[] internalBuf = new byte[4096];
@@ -125,6 +129,7 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
 
         loadedClassBytes = new HashMap<String, byte[]>();
         loadedResources = new HashMap<String, Map<String, byte[]>>();
+        loadedDirectories = new HashSet<String>();
 
         topDomain = getClass().getProtectionDomain();
         CodeSource jarSource = topDomain.getCodeSource();
@@ -228,9 +233,19 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 }
             } else {
 
+                // register we have seen this directory path
+                loadedDirectories.add(entryName);
+                if (entryName.endsWith(File.separator))
+                    loadedDirectories.add(
+                        entryName.substring(0, entryName.length() - 1));
                 // define package
                 String packageName = entryName.replaceAll(File.separator, ".");
-                logFinest("defining package %s", packageName);
+                if (packageName.endsWith("."))
+                    packageName =
+                        packageName.substring(0, packageName.length() - 1);
+                logFinest(
+                    "defining package %s from entry %s",
+                    packageName, entryName);
                 definePackage(packageName, manifest);
             }
         }
@@ -283,6 +298,7 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
 
         logFiner("finding resource as stream %s", name);
 
+        // TODO load directory???
         for (String jarName : loadedResources.keySet()) {
             Map<String, byte[]> jarResources = loadedResources.get(jarName);
             byte[] b = jarResources.get(name);
@@ -313,6 +329,14 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                     "jar", null, -1, name, new JarOfJarsURLStreamHandler(b)));
                 
             }
+        }
+        if (loadedDirectories.contains(name)) {
+            // the default class loader will return a valid URL for 
+            // directory names, but that URL will throw an exception
+            // when openStream() is called on it.
+            // add a useless entry for this directory
+            v.add(new URL(
+                "jar", null, -1, name, new JarOfJarsURLStreamHandler(null)));
         }
 
         Enumeration<URL> superVs = super.findResources(name);
@@ -347,7 +371,22 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             }
         }
 
-        return super.findResource(name);
+        URL u = super.findResource(name);
+        if (u != null) return u;
+        if (loadedDirectories.contains(name)) {
+            // the default class loader will return a valid URL for 
+            // directory names, but that URL will throw an exception
+            // when openStream() is called on it.
+            // So return useless entry for this directory
+            try {
+                return new URL(
+                    "jar", null, -1, name, new JarOfJarsURLStreamHandler(null));
+            } catch (MalformedURLException murle) {
+                murle.printStackTrace();
+            }
+        }
+
+        return null;
     }
 
     /**
