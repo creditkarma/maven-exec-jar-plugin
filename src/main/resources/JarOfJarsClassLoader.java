@@ -107,6 +107,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
 
     // contains classes and native libraries
     private Map<String, byte[]> loadedClassBytes;
+    // contains loaded Classes
+    private Map<String, Class<?>> loadedClasses;
     // contains other things in the jars plus .class files so codeweaving works
     private Map<String, Map<String, byte[]>> loadedResources;
     // contains directories/packages in the jar
@@ -128,6 +130,7 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         logConfig("making JarOfJarsClassLoader with parent %s", parent);
 
         loadedClassBytes = new HashMap<String, byte[]>();
+        loadedClasses = new HashMap<String, Class<?>>();
         loadedResources = new HashMap<String, Map<String, byte[]>>();
         loadedDirectories = new HashSet<String>();
 
@@ -443,7 +446,9 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         String className, boolean resolve) throws ClassNotFoundException {
 
         logFiner("loading class %s and resolve %b", className, resolve);
-        
+
+	Class<?> clazz = loadedClasses.get(className);
+	if (clazz != null) return clazz;
         byte[] b = loadedClassBytes.get(className);
 
         // Essential reading:
@@ -452,13 +457,15 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         Thread.currentThread().setContextClassLoader(this);
 
         if (b != null) {
-            Class<?> clazz = defineClass(className, b, 0, b.length, topDomain);
+            clazz = defineClass(className, b, 0, b.length, topDomain);
             if (resolve) resolveClass(clazz);
+	    loadedClasses.put(className, clazz);
             return clazz;
         }
         
-        Class<?> clazz = super.loadClass(className, resolve);
+        clazz = super.loadClass(className, resolve);
         if (resolve) resolveClass(clazz);
+	loadedClasses.put(className, clazz);
         return clazz;
     }
 
@@ -487,23 +494,26 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 String sealedUrlStr = attrs.getValue(Name.SEALED);
                 URL sealedUrl = null;
                 try {
-                    if (sealedUrlStr != null) sealedUrl = new URL(sealedUrlStr);
+                    if (sealedUrlStr != null && !"true".equals(sealedUrlStr)) {
+			sealedUrl = new URL(sealedUrlStr);
+			definePackage(
+                            packageName,
+			    attrs.getValue(Name.SPECIFICATION_TITLE),
+			    attrs.getValue(Name.SPECIFICATION_VERSION),
+			    attrs.getValue(Name.SPECIFICATION_VENDOR),
+			    attrs.getValue(Name.IMPLEMENTATION_TITLE),
+			    attrs.getValue(Name.IMPLEMENTATION_VERSION),
+			    attrs.getValue(Name.IMPLEMENTATION_VENDOR),
+			    sealedUrl);
+			return;
+		    }
                 } catch (MalformedURLException murle) {
                     murle.printStackTrace();
                 }
-                definePackage(
-                    packageName,
-                    attrs.getValue(Name.SPECIFICATION_TITLE),
-                    attrs.getValue(Name.SPECIFICATION_VERSION),
-                    attrs.getValue(Name.SPECIFICATION_VENDOR),
-                    attrs.getValue(Name.IMPLEMENTATION_TITLE),
-                    attrs.getValue(Name.IMPLEMENTATION_VERSION),
-                    attrs.getValue(Name.IMPLEMENTATION_VENDOR),
-                    sealedUrl);
-            } else {
-                definePackage(
-                    packageName, null, null, null, null, null, null, null);
-            }
+            } 
+
+	    definePackage(
+                packageName, null, null, null, null, null, null, null);
         }
     }
 
