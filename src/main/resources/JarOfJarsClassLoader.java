@@ -41,6 +41,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Vector;
 import java.util.Map;
 import java.util.HashMap;
@@ -107,8 +108,6 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
 
     // contains classes and native libraries
     private Map<String, byte[]> loadedClassBytes;
-    // contains loaded Classes
-    private Map<String, Class<?>> loadedClasses;
     // contains other things in the jars plus .class files so codeweaving works
     private Map<String, Map<String, byte[]>> loadedResources;
     // contains directories/packages in the jar
@@ -130,7 +129,6 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         logConfig("making JarOfJarsClassLoader with parent %s", parent);
 
         loadedClassBytes = new HashMap<String, byte[]>();
-        loadedClasses = new HashMap<String, Class<?>>();
         loadedResources = new HashMap<String, Map<String, byte[]>>();
         loadedDirectories = new HashSet<String>();
 
@@ -164,6 +162,10 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 loadedClassBytes.size(), loadedResources.size());
     }
 
+    public Map<String, Map<String, byte[]>> getLoadedResources() {
+	return loadedResources;
+    }
+    
     private static boolean isClassOrNativeLibrary(String name) {
         return name.endsWith(".class") || name.endsWith(".so") ||
             name.endsWith(".dll") || name.endsWith(".dylib");
@@ -329,7 +331,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             if (b != null) {
                 // return a url that points at this byte array
                 v.add(new URL(
-                    "jar", null, -1, name, new JarOfJarsURLStreamHandler(b)));
+		    "jars", null, -1, name,
+		    new JarOfJarsURLStreamHandler(name, b)));
                 
             }
         }
@@ -339,7 +342,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             // when openStream() is called on it.
             // add a useless entry for this directory
             v.add(new URL(
-                "jar", null, -1, name, new JarOfJarsURLStreamHandler(null)));
+		"jars", null, -1, name,
+		new JarOfJarsURLStreamHandler(name, null)));
         }
 
         Enumeration<URL> superVs = super.findResources(name);
@@ -366,8 +370,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 try {
                     // return a url that points at this byte array
                     return new URL(
-                        "jar", null, -1, name,
-                        new JarOfJarsURLStreamHandler(b));
+                        "jars", null, -1, name,
+                        new JarOfJarsURLStreamHandler(name, b));
                 } catch (MalformedURLException murle) {
                     murle.printStackTrace();
                 }
@@ -383,7 +387,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             // So return useless entry for this directory
             try {
                 return new URL(
-                    "jar", null, -1, name, new JarOfJarsURLStreamHandler(null));
+		    "jars", null, -1, name,
+		    new JarOfJarsURLStreamHandler(name, null));
             } catch (MalformedURLException murle) {
                 murle.printStackTrace();
             }
@@ -447,7 +452,7 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
 
         logFiner("loading class %s and resolve %b", className, resolve);
 
-	Class<?> clazz = loadedClasses.get(className);
+	Class<?> clazz = findLoadedClass(className);
 	if (clazz != null) return clazz;
         byte[] b = loadedClassBytes.get(className);
 
@@ -459,13 +464,13 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         if (b != null) {
             clazz = defineClass(className, b, 0, b.length, topDomain);
             if (resolve) resolveClass(clazz);
-	    loadedClasses.put(className, clazz);
+	    //loadedClasses.put(className, clazz);
             return clazz;
         }
         
         clazz = super.loadClass(className, resolve);
         if (resolve) resolveClass(clazz);
-	loadedClasses.put(className, clazz);
+	//loadedClasses.put(className, clazz);
         return clazz;
     }
 
@@ -540,10 +545,12 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
 
     private static class JarOfJarsURLStreamHandler extends URLStreamHandler {
 
-        private byte[] b;
+	private final String name;
+        private final byte[] b;
         
-        public JarOfJarsURLStreamHandler(byte[] bytes) {
+        public JarOfJarsURLStreamHandler(String name, byte[] bytes) {
             b = bytes;
+	    this.name = name;
         }
 
         protected URLConnection openConnection(URL u) throws IOException {
@@ -554,6 +561,21 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             throws IOException {
             return new JarOfJarsConnection(u, b);
         }
+
+	protected boolean sameFile(URL u1, URL u2) {
+	    if (u1.getProtocol().equals("jars") &&
+		u2.getProtocol().equals("jars")) {
+		return u1.toString().equals(u2.toString());
+	    }
+	    if (u1.getProtocol().equals("jars") ||
+		u2.getProtocol().equals("jars"))
+		return false;
+	    return super.sameFile(u1, u2);
+	}
+	
+	protected String toExternalForm(URL u) {
+	    return "jars://" + name;
+	}
     }
 
     protected void initLogging() {
