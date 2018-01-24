@@ -41,6 +41,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Vector;
 import java.util.Map;
 import java.util.HashMap;
@@ -161,6 +162,10 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 loadedClassBytes.size(), loadedResources.size());
     }
 
+    public Map<String, Map<String, byte[]>> getLoadedResources() {
+	return loadedResources;
+    }
+    
     private static boolean isClassOrNativeLibrary(String name) {
         return name.endsWith(".class") || name.endsWith(".so") ||
             name.endsWith(".dll") || name.endsWith(".dylib");
@@ -326,7 +331,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             if (b != null) {
                 // return a url that points at this byte array
                 v.add(new URL(
-                    "jar", null, -1, name, new JarOfJarsURLStreamHandler(b)));
+		    "jars", null, -1, name,
+		    new JarOfJarsURLStreamHandler(name, b)));
                 
             }
         }
@@ -336,7 +342,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             // when openStream() is called on it.
             // add a useless entry for this directory
             v.add(new URL(
-                "jar", null, -1, name, new JarOfJarsURLStreamHandler(null)));
+		"jars", null, -1, name,
+		new JarOfJarsURLStreamHandler(name, null)));
         }
 
         Enumeration<URL> superVs = super.findResources(name);
@@ -363,8 +370,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 try {
                     // return a url that points at this byte array
                     return new URL(
-                        "jar", null, -1, name,
-                        new JarOfJarsURLStreamHandler(b));
+                        "jars", null, -1, name,
+                        new JarOfJarsURLStreamHandler(name, b));
                 } catch (MalformedURLException murle) {
                     murle.printStackTrace();
                 }
@@ -380,7 +387,8 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             // So return useless entry for this directory
             try {
                 return new URL(
-                    "jar", null, -1, name, new JarOfJarsURLStreamHandler(null));
+		    "jars", null, -1, name,
+		    new JarOfJarsURLStreamHandler(name, null));
             } catch (MalformedURLException murle) {
                 murle.printStackTrace();
             }
@@ -443,7 +451,9 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         String className, boolean resolve) throws ClassNotFoundException {
 
         logFiner("loading class %s and resolve %b", className, resolve);
-        
+
+	Class<?> clazz = findLoadedClass(className);
+	if (clazz != null) return clazz;
         byte[] b = loadedClassBytes.get(className);
 
         // Essential reading:
@@ -452,13 +462,15 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         Thread.currentThread().setContextClassLoader(this);
 
         if (b != null) {
-            Class<?> clazz = defineClass(className, b, 0, b.length, topDomain);
+            clazz = defineClass(className, b, 0, b.length, topDomain);
             if (resolve) resolveClass(clazz);
+	    //loadedClasses.put(className, clazz);
             return clazz;
         }
         
-        Class<?> clazz = super.loadClass(className, resolve);
+        clazz = super.loadClass(className, resolve);
         if (resolve) resolveClass(clazz);
+	//loadedClasses.put(className, clazz);
         return clazz;
     }
 
@@ -487,23 +499,26 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 String sealedUrlStr = attrs.getValue(Name.SEALED);
                 URL sealedUrl = null;
                 try {
-                    if (sealedUrlStr != null) sealedUrl = new URL(sealedUrlStr);
+                    if (sealedUrlStr != null && !"true".equals(sealedUrlStr)) {
+			sealedUrl = new URL(sealedUrlStr);
+			definePackage(
+                            packageName,
+			    attrs.getValue(Name.SPECIFICATION_TITLE),
+			    attrs.getValue(Name.SPECIFICATION_VERSION),
+			    attrs.getValue(Name.SPECIFICATION_VENDOR),
+			    attrs.getValue(Name.IMPLEMENTATION_TITLE),
+			    attrs.getValue(Name.IMPLEMENTATION_VERSION),
+			    attrs.getValue(Name.IMPLEMENTATION_VENDOR),
+			    sealedUrl);
+			return;
+		    }
                 } catch (MalformedURLException murle) {
                     murle.printStackTrace();
                 }
-                definePackage(
-                    packageName,
-                    attrs.getValue(Name.SPECIFICATION_TITLE),
-                    attrs.getValue(Name.SPECIFICATION_VERSION),
-                    attrs.getValue(Name.SPECIFICATION_VENDOR),
-                    attrs.getValue(Name.IMPLEMENTATION_TITLE),
-                    attrs.getValue(Name.IMPLEMENTATION_VERSION),
-                    attrs.getValue(Name.IMPLEMENTATION_VENDOR),
-                    sealedUrl);
-            } else {
-                definePackage(
-                    packageName, null, null, null, null, null, null, null);
-            }
+            } 
+
+	    definePackage(
+                packageName, null, null, null, null, null, null, null);
         }
     }
 
@@ -530,10 +545,12 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
 
     private static class JarOfJarsURLStreamHandler extends URLStreamHandler {
 
-        private byte[] b;
+	private final String name;
+        private final byte[] b;
         
-        public JarOfJarsURLStreamHandler(byte[] bytes) {
+        public JarOfJarsURLStreamHandler(String name, byte[] bytes) {
             b = bytes;
+	    this.name = name;
         }
 
         protected URLConnection openConnection(URL u) throws IOException {
@@ -544,6 +561,21 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             throws IOException {
             return new JarOfJarsConnection(u, b);
         }
+
+	protected boolean sameFile(URL u1, URL u2) {
+	    if (u1.getProtocol().equals("jars") &&
+		u2.getProtocol().equals("jars")) {
+		return u1.toString().equals(u2.toString());
+	    }
+	    if (u1.getProtocol().equals("jars") ||
+		u2.getProtocol().equals("jars"))
+		return false;
+	    return super.sameFile(u1, u2);
+	}
+	
+	protected String toExternalForm(URL u) {
+	    return "jars://" + name;
+	}
     }
 
     protected void initLogging() {

@@ -27,7 +27,7 @@ determine which jar file to exec**
     <plugin>
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
-      <version>1.0.6</version>
+      <version>1.0.7</version>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -95,7 +95,7 @@ to start Kamon.
     <plugin>
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
-      <version>1.0.6</version>
+      <version>1.0.7</version>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -153,7 +153,7 @@ executable jar file name when it is published to Artifactory.
     <plugin>
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
-      <version>1.0.6</version>
+      <version>1.0.7</version>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -191,7 +191,7 @@ An example showing two similar entry points
     <plugin>
       <groupId>com.creditkarma</groupId>
       <artifactId>exec-jar-plugin</artifactId>
-      <version>1.0.6</version>
+      <version>1.0.7</version>
       <executions>
         <execution>
           <id>exec-jar</id>
@@ -236,7 +236,7 @@ A complete example:
       <plugin>
         <groupId>com.creditkarma</groupId>
         <artifactId>exec-jar-plugin</artifactId>
-        <version>1.0.6</version>
+        <version>1.0.7</version>
         <executions>
           <execution>
             <id>consumer-exec-jar</id>
