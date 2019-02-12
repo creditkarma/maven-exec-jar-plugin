@@ -20,34 +20,16 @@ package com.creditkarma.plugin;
 
 import java.io.File;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
-import java.net.URLDecoder;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
 import java.net.Proxy;
 import java.net.MalformedURLException;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
-import java.security.SecureClassLoader;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
-import java.util.Vector;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.Enumeration;
-import java.util.logging.Level;
+import java.util.*;
 import java.util.jar.*;
 import java.util.jar.Attributes.Name;
 
@@ -88,22 +70,8 @@ public class MyAppLauncher {
  * @author Hunter Payne
  * @since October 18, 2016
  */
-public class JarOfJarsClassLoader extends SecureClassLoader {
+public class JarOfJarsClassLoader extends com.creditkarma.plugin.AbstractClassLoader {
 
-    /** VM parameter key to turn on logging to file or console. */
-    public static final String KEY_FILE_LOGGER =
-        "JarOfJarsClassLoader.fileLogger";
-
-    /**
-     * VM parameter key to define log level.
-     * Valid levels are defined in {@link java.util.logging.Level}.
-     * Default value is {@link java.util.logging.Level#INFO}.
-     */
-    public static final String KEY_LOGGER_LEVEL =
-        "JarOfJarsClassLoader.logger.level";
-
-    private static Level logLevel = Level.INFO;
-    private static PrintStream logger = null;
 
     // contains classes and native libraries
     private Map<String, byte[]> loadedClassBytes;
@@ -111,8 +79,7 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
     private Map<String, Map<String, byte[]>> loadedResources;
     // contains directories/packages in the jar
     private Set<String> loadedDirectories;
-    
-    private ProtectionDomain topDomain;
+
     private final byte[] internalBuf = new byte[4096];
 
     public JarOfJarsClassLoader() {
@@ -120,40 +87,16 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
     }
 
     public JarOfJarsClassLoader(ClassLoader parent) {
-
         super(parent);
+    }
 
-        // initialize logging here
-        initLogging();
-        logConfig("making JarOfJarsClassLoader with parent %s", parent);
+    protected void init(File jarFileName) throws IOException {
+        loadedClassBytes = new HashMap<>();
+        loadedResources = new HashMap<>();
+        loadedDirectories = new HashSet<>();
 
-        loadedClassBytes = new HashMap<String, byte[]>();
-        loadedResources = new HashMap<String, Map<String, byte[]>>();
-        loadedDirectories = new HashSet<String>();
-
-        topDomain = getClass().getProtectionDomain();
-        CodeSource jarSource = topDomain.getCodeSource();
-        URL topJarUrl = jarSource.getLocation();
-        assert("file".equals(topJarUrl.getProtocol()));
-
-        try {
-            String jarFileName =
-                URLDecoder.decode(topJarUrl.getFile(), "UTF-8");
-            File jarFile = new File(jarFileName);
-            assert(jarFile.isFile());
-
-            FileInputStream fis = new FileInputStream(jarFile);
-            loadInternalJar(jarFileName, fis);
-            fis.close();
-        } catch (UnsupportedEncodingException e) {
-            System.err.printf(
-                "Failure to decode URL: %s %s\n", topJarUrl, e.toString());
-            throw new RuntimeException("Can't load classloader");
-        } catch (IOException ioe) {
-            System.err.printf("problem decoding file %s\n", ioe.toString());
-            throw new RuntimeException("Can't load classloader");
-        } catch (Throwable t) {
-            t.printStackTrace();
+        try (FileInputStream fis = new FileInputStream(jarFileName)) {
+            loadInternalJar(jarFileName.getName(), fis, true);
         }
 
         Arrays.fill(internalBuf, (byte)0);
@@ -161,17 +104,27 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                 loadedClassBytes.size(), loadedResources.size());
     }
 
+    protected byte[] findClassBytes(String resourceName) {
+        return loadedClassBytes.get(resourceName);
+    }
+
+
     private static boolean isClassOrNativeLibrary(String name) {
         return name.endsWith(".class") || name.endsWith(".so") ||
             name.endsWith(".dll") || name.endsWith(".dylib");
     }
     
-    private void loadInternalJar(String name, InputStream stream)
+    private void loadInternalJar(String name, InputStream stream, boolean first)
         throws IOException {
 
-        Map<String, byte[]> jarResources = new HashMap<String, byte[]>();
+        Map<String, byte[]> jarResources = new HashMap<>();
         JarInputStream jarStream = new JarInputStream(stream);
         Manifest manifest = jarStream.getManifest();
+
+        if (first) {
+            initManifest(manifest);
+        }
+
         JarEntry entry;
         loadedResources.put(name, jarResources);
 
@@ -212,7 +165,7 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                             byte[] loadedBytes =
                                 loadedClassBytes.get(entryName);
                             byte[] dupBytes = out.toByteArray();
-                            
+
                             if (Arrays.equals(dupBytes, loadedBytes)) {
                                 logFiner(
                                     "Duplicate identical class %s found " +
@@ -220,16 +173,15 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
                                     entryName, name);
                             } else {
                                 logWarning(
-                                    "Duplicate non-similar class %s found " + 
+                                    "Duplicate non-similar class %s found " +
                                     "multiple times including in %s",
                                     entryName, name);
                             }
                         }
                     }
                 } else {
-                    ByteArrayInputStream bais =
-                        new ByteArrayInputStream(out.toByteArray());
-                    loadInternalJar(entryName, bais);
+                    ByteArrayInputStream bais = new ByteArrayInputStream(out.toByteArray());
+                    loadInternalJar(entryName, bais, false);
                 }
             } else {
 
@@ -250,43 +202,6 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
             }
         }
         jarStream.close();
-    }
-    
-    public void invokeMain(String className, String[] args) throws Throwable {
-
-        Class<?> clazz = loadClass(className);
-        logInfo("Starting main method of: %s with ClassLoader=%s",
-                className, clazz.getClassLoader());
-        Method method =
-            clazz.getMethod("main", new Class<?>[] { String[].class });
-
-        if (method != null) {
-            int modifiers = method.getModifiers();
-            // make sure the main method is 'public static'
-            if (!Modifier.isPublic(modifiers))
-                throw new NoSuchMethodException("Main method isn't public");
-            if (!Modifier.isStatic(modifiers))
-                throw new NoSuchMethodException("Main method isn't static");
-        
-            Class<?> clazzRet = method.getReturnType();
-            // make sure the return type is void
-            if (clazzRet != void.class)
-                throw new NoSuchMethodException(
-                    "Main method has wrong return type " + clazzRet +
-                    " should be void");
-        }
-        if (null == method) {
-            throw new NoSuchMethodException(
-                "The main() method in class \"" + className +
-                "\" not found.");
-        }
-
-        // Invoke main method
-        try {
-            method.invoke(null, (Object)args);
-        } catch (InvocationTargetException e) {
-            throw e.getTargetException();
-        }
     }
 
     /**
@@ -390,79 +305,6 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
     }
 
     /**
-     * @see java.lang.ClassLoader#findLibrary(java.lang.String)
-     *
-     * @return The absolute path of the native library.
-     */
-    @Override
-    protected String findLibrary(String lib) {
-    
-        logFine("finding lib %s", lib);
-        
-        byte[] b = loadedClassBytes.get(lib);
-        if (b != null) {
-            assert(!lib.endsWith(".class"));
-            try {
-                int lastIdx = lib.lastIndexOf(".");
-                assert(lastIdx != -1);
-                
-                String pre = lib.substring(0, lastIdx);
-                String suf = lib.substring(lastIdx);
-                // dynamically create a filename
-
-                File f = File.createTempFile(pre, suf); //, dir);
-                FileOutputStream fos = new FileOutputStream(f);
-
-                // delete this file when the JVM exits
-                f.deleteOnExit();
-                
-                // and then store these bytes in that file and finally
-                fos.write(b);
-                fos.flush();
-                fos.close();
-
-                // make read-only
-                f.setReadable(true, true);
-                f.setWritable(false);
-
-                // make executable
-                f.setExecutable(true, true);
-                
-                // return the name of this dynamically created file
-                return f.getAbsolutePath();
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-            }
-        }
-
-        return super.findLibrary(lib);
-    }    
-
-    @Override
-    protected synchronized Class<?> loadClass(
-        String className, boolean resolve) throws ClassNotFoundException {
-
-        logFiner("loading class %s and resolve %b", className, resolve);
-        
-        byte[] b = loadedClassBytes.get(className);
-
-        // Essential reading:
-        // - Thread.getContextClassLoader() JavaDoc.
-        // - http://www.javaworld.com/javaworld/javaqa/2003-06/01-qa-0606-load.html
-        Thread.currentThread().setContextClassLoader(this);
-
-        if (b != null) {
-            Class<?> clazz = defineClass(className, b, 0, b.length, topDomain);
-            if (resolve) resolveClass(clazz);
-            return clazz;
-        }
-        
-        Class<?> clazz = super.loadClass(className, resolve);
-        if (resolve) resolveClass(clazz);
-        return clazz;
-    }
-
-    /**
      * The default <code>ClassLoader.defineClass()</code> does not create 
      * package for the loaded class and leaves it null. Each package 
      * referenced by this class loader must be created only once before the
@@ -546,58 +388,4 @@ public class JarOfJarsClassLoader extends SecureClassLoader {
         }
     }
 
-    protected void initLogging() {
-
-        String logFile = System.getProperty(KEY_FILE_LOGGER);
-        String logLevelStr = System.getProperty(KEY_LOGGER_LEVEL);
-        if (logLevelStr != null) logLevel = Level.parse(logLevelStr);
-
-        if (null == logFile) {
-            logger = System.err;
-        } else {
-            try {
-                logger = new PrintStream(logFile);
-                System.out.println(
-                    "classloader logging redirected to " + logFile);
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-                logger = System.out;
-            }
-        }
-    }
-
-    protected void logFinest(String msg, Object ... obj) {
-        log(Level.FINEST, msg, obj);
-    }
-
-    protected void logFiner(String msg, Object ... obj) {
-        log(Level.FINER, msg, obj);
-    }
-
-    protected void logFine(String msg, Object ... obj) {
-        log(Level.FINE, msg, obj);
-    }
-
-    protected void logConfig(String msg, Object ... obj) {
-        log(Level.CONFIG, msg, obj);
-    }
-
-    protected void logInfo(String msg, Object ... obj) {
-        log(Level.INFO, msg, obj);
-    }
-
-    protected void logWarning(String msg, Object ... obj) {
-        log(Level.WARNING, msg, obj);
-    }
-
-    protected void logSevere(String msg, Object ... obj) {
-        log(Level.SEVERE, msg, obj);
-    }
-
-    protected void log(Level level, String msg, Object ... obj) {
-        if (level.intValue() >= logLevel.intValue()) {
-            logger.printf(
-                "JarOfJarsClassLoader-" + level + ": " + msg + "\n", obj);
-        }
-    }    
 }

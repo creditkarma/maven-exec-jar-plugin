@@ -19,10 +19,7 @@ under the License.
 package com.creditkarma.plugin;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
@@ -175,6 +172,45 @@ public class ExecJarMojo extends AbstractMojo {
      */
     private String extraLauncherArgs = "";
 
+
+	/**
+	 * The dependency path, default is "lib"
+	 *
+	 * @parameter default-value="lib"
+	 */
+	private String libPath = "lib";
+
+
+	/**
+	 * The Native libraries, default is "binlib"
+	 *
+	 * @parameter alias="binlib" default-value="binlib"
+	 */
+	private String nativeLibPath = "binlib";
+
+	/**
+	 * The jar layout, default is "oneEntry"
+	 *
+	 * @parameter default-value="oneEntry"
+	 */
+	private String jarLayout = "oneEntry";
+
+	/**
+	 * Add class path in this manifest? if layout is inline, then addClasspath will be set to true
+	 *
+	 * @parameter default-value="false"
+	 */
+	private boolean addClasspath = false;
+
+
+	/**
+	 * Add the version information in the jar
+	 */
+	private String version = "1.0.7";
+
+
+
+
     public void execute() throws MojoExecutionException {
 
         // Show some info about the plugin.
@@ -210,6 +246,11 @@ public class ExecJarMojo extends AbstractMojo {
 	    // alter the manifest to point at the new launcher's name
 	    manifest.getMainAttributes().putValue("Main-Class",
 						  launcherClassName);
+
+	    manifest.getMainAttributes().putValue("Exec-Jar-Version", version);
+	    manifest.getMainAttributes().putValue("Exec-Jar-Layout", jarLayout);
+
+	    JarLayout layout = JarLayout.JarLayouts.toLayout(jarLayout);
 	    
             // Open a stream to write to the target file
             out = new JarOutputStream(
@@ -240,25 +281,36 @@ public class ExecJarMojo extends AbstractMojo {
 	    
             // All dependencies, including transient dependencies, but
 	    // excluding system scope dependencies
-            List<File> dependencyJars = extractDependencyFiles(artifacts);
+            Map<File, Artifact> dependencyJars = extractDependencyFiles(artifacts);
             if (getLog().isDebugEnabled()) {
                 getLog().debug("Adding [" + dependencyJars.size() +
 			       "] dependency libraries...");
             }
-            for (File jar : dependencyJars) {
-                addToZip(jar, "lib/", out);
+            List<String> classPaths = new ArrayList<>();
+            for (File jar : dependencyJars.keySet()) {
+            	Artifact artifact = dependencyJars.get(jar);
+				classPaths.add(layout.addJar(out, jar, libPath + "/", artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion(), artifact.getType()));
             }
 
             // System scope dependencies
-            List<File> systemDependencyJars =
+            Map<File, Dependency> systemDependencyJars =
 		extractSystemDependencyFiles(dependencies);
             if (getLog().isDebugEnabled()) {
                 getLog().debug("Adding [" + systemDependencyJars.size() +
 			       "] system dependency libraries...");
             }
-            for (File jar : systemDependencyJars) {
-                addToZip(jar, "lib/", out);
+            for (File jar : systemDependencyJars.keySet()) {
+            	Dependency dependency = systemDependencyJars.get(jar);
+				classPaths.add(layout.addJar(out, jar, libPath + "/", dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion(), dependency.getType()));
             }
+
+            if (layout == JarLayout.JarLayouts.Inline) {
+				addClasspath = true;
+			}
+
+			if (addClasspath) {
+				manifest.getMainAttributes().putValue("Class-Path", toString(classPaths, " "));
+			}
 
             // Native libraries
             if (binlibs != null) {
@@ -269,7 +321,7 @@ public class ExecJarMojo extends AbstractMojo {
 				       "] native libraries...");
                     }
                     for (File eachIncludedFile : includedFiles) {
-                        addToZip(eachIncludedFile, "binlib/", out);
+                        addToZip(eachIncludedFile, nativeLibPath + "/", out);
                     }
                 }
             }
@@ -362,7 +414,7 @@ public class ExecJarMojo extends AbstractMojo {
     private final AtomicInteger alternativeEntryCounter =
 	new AtomicInteger(0);
 
-    private void addToZip(JarOutputStream out, ZipEntry entry,
+    static void addToZip(JarOutputStream out, ZipEntry entry,
 			  InputStream in) throws IOException {
         try {
             out.putNextEntry(entry);
@@ -430,9 +482,9 @@ public class ExecJarMojo extends AbstractMojo {
      * @param artifacts Pre-resolved artifacts
      * @return <code>File</code> objects for each artifact.
      */
-    private List<File> extractDependencyFiles(
+    private Map<File, Artifact> extractDependencyFiles(
 	Collection<Artifact> artifacts) {
-        List<File> files = new ArrayList<File>();
+        Map<File, Artifact> files = new LinkedHashMap<>();
 
         if (artifacts == null){
             return files;
@@ -442,9 +494,8 @@ public class ExecJarMojo extends AbstractMojo {
             File file = artifact.getFile();
 
             if (file.isFile()) {
-                files.add(file);
+                files.put(file, artifact);
             }
-
         }
         return files;
     }
@@ -455,9 +506,9 @@ public class ExecJarMojo extends AbstractMojo {
      * @return <code>File</code> objects for each system dependency in 
      * the supplied dependencies.
      */
-    private List<File> extractSystemDependencyFiles(
+    private Map<File, Dependency> extractSystemDependencyFiles(
 	Collection<Dependency> systemDependencies) {
-        final ArrayList<File> files = new ArrayList<File>();
+        final Map<File, Dependency> files = new LinkedHashMap<>();
 
         if (systemDependencies == null){
             return files;
@@ -466,7 +517,7 @@ public class ExecJarMojo extends AbstractMojo {
         for (Dependency systemDependency : systemDependencies) {
             if (systemDependency != null &&
 		"system".equals(systemDependency.getScope())){
-                files.add(new File(systemDependency.getSystemPath()));
+                files.put(new File(systemDependency.getSystemPath()), systemDependency);
             }
         }
         return files;
@@ -474,13 +525,13 @@ public class ExecJarMojo extends AbstractMojo {
 
     private String constructLauncherMain(
 	String mainClass, String launcherPackage,
-	String launcherMainClass) {
+	String launcherMainClass, String classLoaderClass) {
 
 	return "package " + launcherPackage +
-	    ";\n\nimport com.creditkarma.plugin.JarOfJarsClassLoader;\n\n" +
+	    ";\n\nimport com.creditkarma.plugin." + classLoaderClass + ";\n\n" +
 	    "public class " + launcherMainClass +
 	    " {\n\n  public static void main(String[] args) {\n" +
-	    "    JarOfJarsClassLoader jcl = new JarOfJarsClassLoader();\n" +
+	    "    " + classLoaderClass + " jcl = new " + classLoaderClass + "();\n" +
 	    "    try {\n      jcl.invokeMain(\"" +
 	    mainClass + "\", args);\n    } catch (Throwable e) {\n" +
 	    "      e.printStackTrace();\n    }\n  }\n}";
@@ -529,9 +580,12 @@ public class ExecJarMojo extends AbstractMojo {
 	String launcherClassName = launcherClass.substring(lastDotIdx + 1);
 	String launcherPackage = launcherClass.substring(0, lastDotIdx);
 
+	JarLayout layout = JarLayout.JarLayouts.toLayout(jarLayout);
+	String classLoaderClass = layout == JarLayout.JarLayouts.Inline ? "InlineJarClassLoader" : "JarOfJarsClassLoader";
+	String classLoaderClassFile = classLoaderClass + ".java";
+
 	String launcherClassSource =
-	    constructLauncherMain(mainClass, launcherPackage,
-				  launcherClassName);
+	    constructLauncherMain(mainClass, launcherPackage, launcherClassName, classLoaderClass);
 	File outputDirectory =
 	    new File(this.outputDirectory, "generated-sources");
 	verifyIsDirectory(outputDirectory);
@@ -550,16 +604,20 @@ public class ExecJarMojo extends AbstractMojo {
 	fos.flush();
 	fos.close();
 
+
 	ClassLoader cl = getClass().getClassLoader();
-	InputStream srcIn =
-	    cl.getResourceAsStream("JarOfJarsClassLoader.java");
-	File srcOutputDirectory =
-	    new File(outputDirectory, "com/creditkarma/plugin/");
+	InputStream srcIn = cl.getResourceAsStream(classLoaderClassFile);
+	File srcOutputDirectory = new File(outputDirectory, "com/creditkarma/plugin/");
 	verifyIsDirectory(srcOutputDirectory);
 	
-	File jarClSrcFile =
-	    new File(srcOutputDirectory, "JarOfJarsClassLoader.java");
+	File jarClSrcFile = new File(srcOutputDirectory, classLoaderClassFile);
 	FileOutputStream srcOut = new FileOutputStream(jarClSrcFile);
+	copy(srcIn, srcOut);
+	srcOut.flush();
+	srcOut.close();
+
+	srcIn = cl.getResourceAsStream("AbstractClassLoader.java");
+	srcOut = new FileOutputStream(new File(srcOutputDirectory, "AbstractClassLoader.java"));
 	copy(srcIn, srcOut);
 	srcOut.flush();
 	srcOut.close();
@@ -606,14 +664,18 @@ public class ExecJarMojo extends AbstractMojo {
 	return Collections.<File>emptyList();
     }
 
+	private static String toString(List<String> strings, String sep) {
+		StringBuilder sb = new StringBuilder();
+		for (String string : strings) {
+			if (sb.length() > 0) {
+				sb.append(sep);
+			}
+			sb.append(string);
+		}
+		return sb.toString();
+	}
+
     private static String toString(List<String> strings) {
-        StringBuilder sb = new StringBuilder();
-        for (String string : strings) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(string);
-        }
-        return sb.toString();
+        return toString(strings, ", ");
     }
 }
