@@ -21,6 +21,7 @@ package com.creditkarma.plugin;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
@@ -107,7 +108,7 @@ public class ExecJarMojo extends AbstractMojo {
      * The version of exec-jar to use.  Has a default, so typically no 
      * need to specify this.
      *
-     * @parameter property="execjar-version" default-value="0.97"
+     * @parameter property="execjar-version" default-value="1.1.0"
      */
     private String execjarVersion;
 
@@ -203,13 +204,57 @@ public class ExecJarMojo extends AbstractMojo {
 	private boolean addClasspath = false;
 
 
-	/**
-	 * Add the version information in the jar
-	 */
-	private String version = "1.0.7";
+    /**
+     * Add index list in this manifest? if layout is inline, it will add INDEX.LIST automatically
+     *
+     * @parameter default-value="false"
+     */
+	private boolean addIndexList = false;
 
 
+	private static final String CURRENT_JAR = "_EXEC_JAR_CURRENT_.jar";
 
+    /**
+     * Jar To Packages
+     *
+     * The key for current jar is "_EXEC_JAR_CURRENT_.jar"
+     */
+	private Map<String, Set<String>> jarToPackages;
+
+
+	private void addPackageInIndex(String jarFile, String entryName) {
+	    if (addIndexList) {
+            if (jarToPackages == null) {
+                jarToPackages = new LinkedHashMap<>();
+            }
+
+	        int index = entryName.indexOf('/');
+            if (index < 0) {
+                addPackageInIndex0(jarFile, "/");
+            }
+            int len = entryName.length();
+	        while(index > 0) {
+	            String dir = entryName.substring(0, index+1);
+                addPackageInIndex0(jarFile, "/" + dir);
+                if (index+1 < len) {
+                    index = entryName.indexOf('/', index + 1);
+                }
+                else {//index+1==len
+                    break;
+                }
+            }
+        }
+    }
+
+    private void addPackageInIndex0(String jarFile, String packageName) {
+        Set<String> set = jarToPackages.get(jarFile);
+        if (set == null) {
+            set = new HashSet<>();
+            set.add("/META-INF/");
+            jarToPackages.put(jarFile, set);
+        }
+        set.add(packageName);
+    }
 
     public void execute() throws MojoExecutionException {
 
@@ -247,11 +292,15 @@ public class ExecJarMojo extends AbstractMojo {
 	    manifest.getMainAttributes().putValue("Main-Class",
 						  launcherClassName);
 
-	    manifest.getMainAttributes().putValue("Exec-Jar-Version", version);
+	    manifest.getMainAttributes().putValue("Exec-Jar-Version", execjarVersion);
 	    manifest.getMainAttributes().putValue("Exec-Jar-Layout", jarLayout);
 
 	    JarLayout layout = JarLayout.JarLayouts.toLayout(jarLayout);
-	    
+        if (layout == JarLayout.JarLayouts.Inline) {
+            addClasspath = true;
+            addIndexList = true;
+        }
+
             // Open a stream to write to the target file
             out = new JarOutputStream(
 		new FileOutputStream(execJarFile, false), manifest);
@@ -266,6 +315,7 @@ public class ExecJarMojo extends AbstractMojo {
 	    addToZip(launcherClass, packageName.replace('.', '/') + "/",
 		     out);
 
+
 	    // add mainJarFilename directly to the executable jar (ie out)
 	    File mainJarFile =
 		new File(outputDirectory, mainJarFilename + ".jar");
@@ -274,7 +324,7 @@ public class ExecJarMojo extends AbstractMojo {
 	    ZipEntry entry;
 	    while ((entry = mainIn.getNextEntry()) != null) {
 		if (!entry.getName().equalsIgnoreCase("manifest.mf")) {
-		    addToZip(out, entry, mainIn);
+		    addToZip(CURRENT_JAR, out, entry, mainIn);
 		}
 	    }
 	    mainIn.close();
@@ -289,7 +339,7 @@ public class ExecJarMojo extends AbstractMojo {
             List<String> classPaths = new ArrayList<>();
             for (File jar : dependencyJars.keySet()) {
             	Artifact artifact = dependencyJars.get(jar);
-				classPaths.add(layout.addJar(out, jar, libPath + "/", artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion(), artifact.getType()));
+				classPaths.add(layout.addJar(this, out, jar, libPath + "/", artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion(), artifact.getType()));
             }
 
             // System scope dependencies
@@ -301,12 +351,9 @@ public class ExecJarMojo extends AbstractMojo {
             }
             for (File jar : systemDependencyJars.keySet()) {
             	Dependency dependency = systemDependencyJars.get(jar);
-				classPaths.add(layout.addJar(out, jar, libPath + "/", dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion(), dependency.getType()));
+				classPaths.add(layout.addJar(this, out, jar, libPath + "/", dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion(), dependency.getType()));
             }
 
-            if (layout == JarLayout.JarLayouts.Inline) {
-				addClasspath = true;
-			}
 
 			if (addClasspath) {
 				manifest.getMainAttributes().putValue("Class-Path", toString(classPaths, " "));
@@ -332,20 +379,36 @@ public class ExecJarMojo extends AbstractMojo {
 	    // copy .class files into out
 	    File classOutputDirectory =
 		new File(this.outputDirectory, "classes");
-	    File jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/JarOfJarsClassLoader.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/JarOfJarsClassLoader" +
-			 "$JarOfJarsConnection.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
-	    jarClClassFile =
-		new File(classOutputDirectory,
-			 "com/creditkarma/plugin/JarOfJarsClassLoader" +
-			 "$JarOfJarsURLStreamHandler.class");
-	    addToZip(jarClClassFile, "com/creditkarma/plugin/", out);
+
+        String pluginPackageName = "com/creditkarma/plugin/";
+        File baseClassFile =
+                new File(classOutputDirectory,
+                        "com/creditkarma/plugin/AbstractClassLoader.class");
+        addToZip(baseClassFile, pluginPackageName, out);
+
+	    if (layout == JarLayout.JarLayouts.Inline) {
+            File jarClClassFile =
+                    new File(classOutputDirectory,
+                            "com/creditkarma/plugin/InlineJarClassLoader.class");
+            addToZip(jarClClassFile, pluginPackageName, out);
+        }
+        else {
+            File jarClClassFile =
+                    new File(classOutputDirectory,
+                            "com/creditkarma/plugin/JarOfJarsClassLoader.class");
+            addToZip(jarClClassFile, pluginPackageName, out);
+
+            jarClClassFile =
+                    new File(classOutputDirectory,
+                            "com/creditkarma/plugin/JarOfJarsClassLoader" +
+                                    "$JarOfJarsConnection.class");
+            addToZip(jarClClassFile, pluginPackageName, out);
+            jarClClassFile =
+                    new File(classOutputDirectory,
+                            "com/creditkarma/plugin/JarOfJarsClassLoader" +
+                                    "$JarOfJarsURLStreamHandler.class");
+            addToZip(jarClClassFile, pluginPackageName, out);
+        }
 
             File execScriptFile =
 		new File(outputDirectory, filename + "-executable.sh");
@@ -364,6 +427,11 @@ public class ExecJarMojo extends AbstractMojo {
 		projectHelper.attachArtifact(project, "sh", classifier,
 					     execScriptFile);
 	    }
+
+	    //Index
+        if (addIndexList && jarToPackages != null) {
+            addToZip(CURRENT_JAR, out, new JarEntry("META-INF/INDEX.LIST"), toIndexList());
+        }
         } catch (Exception e) {
             getLog().error(e);
             throw new MojoExecutionException("ExecJar Mojo failed.", e);
@@ -376,6 +444,32 @@ public class ExecJarMojo extends AbstractMojo {
 		}
 	    }
         }
+    }
+
+    private ByteArrayInputStream toIndexList() throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        OutputStreamWriter writer = new OutputStreamWriter(byteArrayOutputStream, "UTF8");
+        PrintWriter printWriter = new PrintWriter(writer);
+            /*
+            JarIndex-Version: 1.0
+
+                JAR_FILE.jar
+                META-INF/
+                com/
+                com/somePackage
+             */
+        printWriter.println("JarIndex-Version: 1.0");
+        printWriter.println();
+        for(String jarFile: jarToPackages.keySet()) {
+            Set<String> packageNames = jarToPackages.get(jarFile);
+            printWriter.println(jarFile);
+            for(String p: packageNames) {
+                printWriter.println(p);
+            }
+            printWriter.println();
+        }
+        printWriter.flush();
+        return new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
     }
 
     private void displayPluginInfo() {
@@ -404,27 +498,36 @@ public class ExecJarMojo extends AbstractMojo {
     }
 
     // ----- Zip-file manipulations ---------------------------------------
-    private void addToZip(File sourceFile, String zipfilePath,
-			  JarOutputStream out) throws IOException {
-
-        addToZip(out, new ZipEntry(zipfilePath + sourceFile.getName()),
-		 new FileInputStream(sourceFile));
+    protected void addToZip(File sourceFile, String zipfilePath, JarOutputStream out) throws IOException {
+        JarEntry zipEntry = new JarEntry(zipfilePath + sourceFile.getName());
+        addToZip(CURRENT_JAR, out, zipEntry, new FileInputStream(sourceFile));
     }
 
     private final AtomicInteger alternativeEntryCounter =
 	new AtomicInteger(0);
 
-    static void addToZip(JarOutputStream out, ZipEntry entry,
-			  InputStream in) throws IOException {
+    protected void addToZip(String jarFile, JarOutputStream out, ZipEntry entry,
+                            InputStream in) throws IOException {
+
+        String entryName = entry.getName();
+        if (addIndexList && entryName.startsWith(jarFile)) { //Inline case
+            addPackageInIndex(jarFile, entryName.substring(jarFile.length()+1));
+        }
+        else {
+            addPackageInIndex(jarFile, entryName);
+        }
+
         try {
             out.putNextEntry(entry);
             copy(in, out);
             out.closeEntry();
         } catch(ZipException e) {
+            e.printStackTrace();
             if (!e.getMessage().startsWith("duplicate entry")){
                 throw e;
             }
         }
+
     }
 
     public static long copyLarge(final InputStream input,
@@ -616,8 +719,9 @@ public class ExecJarMojo extends AbstractMojo {
 	srcOut.flush();
 	srcOut.close();
 
+	File baseSrcFile = new File(srcOutputDirectory, "AbstractClassLoader.java");
 	srcIn = cl.getResourceAsStream("AbstractClassLoader.java");
-	srcOut = new FileOutputStream(new File(srcOutputDirectory, "AbstractClassLoader.java"));
+	srcOut = new FileOutputStream(baseSrcFile);
 	copy(srcIn, srcOut);
 	srcOut.flush();
 	srcOut.close();
@@ -628,9 +732,9 @@ public class ExecJarMojo extends AbstractMojo {
 	    project.getCompileClasspathElements();
 	StringBuilder sb = new StringBuilder();
 
+	sb.append(classOutputDirectory.getAbsolutePath());
 	for (String path : compileClasspath) {
-	    if (0 == sb.length()) sb.append(File.pathSeparator);
-	    sb.append(path);
+	    sb.append(File.pathSeparator).append(path);
 	}
 
 	com.sun.tools.javac.Main javac = new com.sun.tools.javac.Main();
@@ -638,6 +742,7 @@ public class ExecJarMojo extends AbstractMojo {
 	    "-cp", sb.toString(),
 	    "-d", classOutputDirectory.getAbsolutePath(),
 	    launcherSourceFile.getAbsolutePath(),
+        baseSrcFile.getAbsolutePath(),
 	    jarClSrcFile.getAbsolutePath()
 	};
 	if (0 == javac.compile(options)) {

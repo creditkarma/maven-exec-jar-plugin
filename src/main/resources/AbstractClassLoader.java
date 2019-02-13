@@ -4,6 +4,7 @@ import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.security.CodeSource;
@@ -12,6 +13,7 @@ import java.security.SecureClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.logging.Level;
 
@@ -19,7 +21,7 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
 
     /** VM parameter key to turn on logging to file or console. */
     public static final String KEY_FILE_LOGGER =
-            "JarOfJarsClassLoader.fileLogger";
+            "ExecJarClassLoader.fileLogger";
 
     /**
      * VM parameter key to define log level.
@@ -27,7 +29,7 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
      * Default value is {@link java.util.logging.Level#INFO}.
      */
     public static final String KEY_LOGGER_LEVEL =
-            "JarOfJarsClassLoader.logger.level";
+            "ExecJarClassLoader.logger.level";
 
     private static Level logLevel = Level.INFO;
     private static PrintStream logger = null;
@@ -39,6 +41,11 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
     protected String jarLayout;
     protected List<String> classPaths;
 
+    protected final byte[] internalBuf = new byte[4096];
+
+    protected URL topJarUrl;
+
+    protected File topFile;
 
     public AbstractClassLoader() {
         this(ClassLoader.getSystemClassLoader());
@@ -53,15 +60,15 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
 
         topDomain = getClass().getProtectionDomain();
         CodeSource jarSource = topDomain.getCodeSource();
-        URL topJarUrl = jarSource.getLocation();
+        topJarUrl = jarSource.getLocation();
         assert("file".equals(topJarUrl.getProtocol()));
 
         try {
             String jarFileName = URLDecoder.decode(topJarUrl.getFile(), "UTF-8");
-            File jarFile = new File(jarFileName);
-            assert(jarFile.isFile());
+            topFile = new File(jarFileName);
+            assert(topFile.isFile());
 
-            init(jarFile);
+            init(topFile);
         } catch (UnsupportedEncodingException e) {
             System.err.printf(
                     "Failure to decode URL: %s %s\n", topJarUrl, e.toString());
@@ -212,8 +219,11 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
 
     protected void log(Level level, String msg, Object ... obj) {
         if (level.intValue() >= logLevel.intValue()) {
-            logger.printf(
-                    "JarOfJarsClassLoader-" + level + ": " + msg + "\n", obj);
+            long timestamp = System.currentTimeMillis();
+            int milliseconds = (int)(timestamp % 1000);
+            int seconds = (int)((timestamp / 1000) % 60);
+            int minutes = (int)((timestamp / 60000) % 60);
+            logger.printf("XX:" + minutes + ":" + seconds + "." + milliseconds + " " + level + ": " + msg + "\n", obj);
         }
     }
 
@@ -222,7 +232,7 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
 
         Class<?> clazz = loadClass(className);
         logInfo("Starting main method of: %s with ClassLoader=%s",
-                className, clazz.getClassLoader());
+                className, clazz.getClassLoader().getClass().getName());
         Method method =
                 clazz.getMethod("main", new Class<?>[] { String[].class });
 
@@ -252,6 +262,53 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
             method.invoke(null, (Object)args);
         } catch (InvocationTargetException e) {
             throw e.getTargetException();
+        }
+        logInfo("Main method of: %s started.", className);
+    }
+
+
+    /**
+     * The default <code>ClassLoader.defineClass()</code> does not create
+     * package for the loaded class and leaves it null. Each package
+     * referenced by this class loader must be created only once before the
+     * <code>ClassLoader.defineClass()</code> call.
+     * The base class <code>ClassLoader</code> keeps cache with created
+     * packages for reuse.
+     *
+     * @param className class to load
+     * @param manifest manifest of the jar file that contains this package
+     * @throws  IllegalArgumentException
+     *          If package name duplicates an existing package either in
+     *          this class loader or one of its ancestors.
+     */
+    protected void definePackage(String className, Manifest manifest)
+            throws IllegalArgumentException {
+        int pos = className.lastIndexOf('.');
+        String packageName = "";
+        if (pos > 0) packageName = className.substring(0, pos);
+        if (null == getPackage(packageName)) {
+            if (manifest != null) {
+                Attributes attrs = manifest.getMainAttributes();
+                String sealedUrlStr = attrs.getValue(Attributes.Name.SEALED);
+                URL sealedUrl = null;
+                try {
+                    if (sealedUrlStr != null) sealedUrl = new URL(sealedUrlStr);
+                } catch (MalformedURLException murle) {
+                    murle.printStackTrace();
+                }
+                definePackage(
+                        packageName,
+                        attrs.getValue(Attributes.Name.SPECIFICATION_TITLE),
+                        attrs.getValue(Attributes.Name.SPECIFICATION_VERSION),
+                        attrs.getValue(Attributes.Name.SPECIFICATION_VENDOR),
+                        attrs.getValue(Attributes.Name.IMPLEMENTATION_TITLE),
+                        attrs.getValue(Attributes.Name.IMPLEMENTATION_VERSION),
+                        attrs.getValue(Attributes.Name.IMPLEMENTATION_VENDOR),
+                        sealedUrl);
+            } else {
+                definePackage(
+                        packageName, null, null, null, null, null, null, null);
+            }
         }
     }
 }

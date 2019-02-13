@@ -80,7 +80,7 @@ public class JarOfJarsClassLoader extends com.creditkarma.plugin.AbstractClassLo
     // contains directories/packages in the jar
     private Set<String> loadedDirectories;
 
-    private final byte[] internalBuf = new byte[4096];
+
 
     public JarOfJarsClassLoader() {
         this(ClassLoader.getSystemClassLoader());
@@ -302,51 +302,6 @@ public class JarOfJarsClassLoader extends com.creditkarma.plugin.AbstractClassLo
         }
 
         return null;
-    }
-
-    /**
-     * The default <code>ClassLoader.defineClass()</code> does not create 
-     * package for the loaded class and leaves it null. Each package 
-     * referenced by this class loader must be created only once before the
-     * <code>ClassLoader.defineClass()</code> call.
-     * The base class <code>ClassLoader</code> keeps cache with created 
-     * packages for reuse.
-     *
-     * @param className class to load
-     * @param manifest manifest of the jar file that contains this package
-     * @throws  IllegalArgumentException
-     *          If package name duplicates an existing package either in 
-     *          this class loader or one of its ancestors.
-     */
-    private void definePackage(String className, Manifest manifest)
-    throws IllegalArgumentException {
-        int pos = className.lastIndexOf('.');
-        String packageName = "";
-        if (pos > 0) packageName = className.substring(0, pos);
-        if (null == getPackage(packageName)) {
-            if (manifest != null) {
-                Attributes attrs = manifest.getMainAttributes();
-                String sealedUrlStr = attrs.getValue(Name.SEALED);
-                URL sealedUrl = null;
-                try {
-                    if (sealedUrlStr != null) sealedUrl = new URL(sealedUrlStr);
-                } catch (MalformedURLException murle) {
-                    murle.printStackTrace();
-                }
-                definePackage(
-                    packageName,
-                    attrs.getValue(Name.SPECIFICATION_TITLE),
-                    attrs.getValue(Name.SPECIFICATION_VERSION),
-                    attrs.getValue(Name.SPECIFICATION_VENDOR),
-                    attrs.getValue(Name.IMPLEMENTATION_TITLE),
-                    attrs.getValue(Name.IMPLEMENTATION_VERSION),
-                    attrs.getValue(Name.IMPLEMENTATION_VENDOR),
-                    sealedUrl);
-            } else {
-                definePackage(
-                    packageName, null, null, null, null, null, null, null);
-            }
-        }
     }
 
     private static class JarOfJarsConnection extends URLConnection {

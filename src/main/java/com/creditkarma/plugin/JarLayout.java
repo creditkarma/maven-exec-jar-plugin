@@ -21,6 +21,8 @@ public interface JarLayout {
     /**
      * Add the given sourceJar into executable JarFile
      *
+     *
+     * @param mojo
      * @param execJar Executable Jar File
      * @param sourceJar SourceJar file
      * @param libPath Lib Path
@@ -31,18 +33,19 @@ public interface JarLayout {
      * @return Returns the class path information
      * @throws IOException If there is any exception
      */
-    String addJar(JarOutputStream execJar, File sourceJar, String libPath,
-                String groupId, String artifactId, String version, String type) throws IOException;
+    String addJar(ExecJarMojo mojo, JarOutputStream execJar, File sourceJar, String libPath,
+                  String groupId, String artifactId, String version, String type) throws IOException;
 
 
     enum JarLayouts implements JarLayout {
         OneEntry {
             @Override
-            public String addJar(JarOutputStream execJar, File sourceJar, String libPath,
+            public String addJar(ExecJarMojo mojo, JarOutputStream execJar, File sourceJar, String libPath,
                                  String groupId, String artifactId, String version, String type) throws IOException {
                 String classPath = libPath + sourceJar.getName();
                 try (InputStream inputStream = new FileInputStream(sourceJar)) {
-                    ExecJarMojo.addToZip(execJar, new ZipEntry(classPath), inputStream);
+                    JarEntry entry = new JarEntry(classPath);
+                    mojo.addToZip(classPath, execJar, entry, inputStream);
                 }
                 return classPath;
             }
@@ -50,7 +53,7 @@ public interface JarLayout {
 
         Inline {
             @Override
-            public String addJar(JarOutputStream execJar, File sourceJar, String libPath,
+            public String addJar(ExecJarMojo mojo, JarOutputStream execJar, File sourceJar, String libPath,
                                  String groupId, String artifactId, String version, String type) throws IOException {
 
                 String classPath = libPath + sourceJar.getName();
@@ -60,7 +63,7 @@ public interface JarLayout {
                     Enumeration<JarEntry> enumeration = jarFile.entries();
                     while(enumeration.hasMoreElements()) {
                         JarEntry entry = enumeration.nextElement();
-                        ExecJarMojo.addToZip(execJar, new ZipEntry(prefix + entry.getName()), jarFile.getInputStream(entry));
+                        mojo.addToZip(classPath, execJar, new ZipEntry(prefix + entry.getName()), jarFile.getInputStream(entry));
                     }
                 }
                 return classPath;
