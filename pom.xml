@@ -1,13 +1,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.femtoframework.fork</groupId>
-  <artifactId>exec-jar-plugin</artifactId>
+  <artifactId>coin-jar-plugin</artifactId>
   <packaging>maven-plugin</packaging>
-  <version>1.1.0</version>
+  <version>1.1.0-FEMTO</version>
   <name>Executable Jar Maven Plugin</name>
 
   <description>Creates executable jars containing their dependent jars instead of exploding the dependent jars into the main jar</description>
-  <url>https://github.com/creditkarma/maven-exec-jar-plugin</url>
+  <url>https://github.com/femtoframework/maven-exec-jar-plugin</url>
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
@@ -24,9 +24,9 @@
   </parent>
 
   <scm>
-    <connection>scm:git:git://github.com/creditkarma/maven-exec-jar-plugin.git</connection>
-    <developerConnection>scm:git:ssh://github.com/creditkarma/maven-exec-jar-plugin.git</developerConnection>
-    <url>https://github.com/creditkarma/maven-exec-jar-plugin/</url>
+    <connection>scm:git:git://github.com/femtoframework/maven-exec-jar-plugin.git</connection>
+    <developerConnection>scm:git:ssh://github.com/femtoframework/maven-exec-jar-plugin.git</developerConnection>
+    <url>https://github.com/femtoframework/maven-exec-jar-plugin/</url>
   </scm>
 
   <developers>
@@ -178,6 +178,16 @@
         </executions>
       </plugin>
       <plugin>
+        <groupId>org.sonatype.plugins</groupId>
+        <artifactId>nexus-staging-maven-plugin</artifactId>
+        <version>1.6.6</version>
+        <extensions>true</extensions>
+        <configuration>
+          <serverId>ossrh-releases</serverId>
+          <nexusUrl>https://oss.sonatype.org</nexusUrl>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-gpg-plugin</artifactId>
         <version>1.6</version>
@@ -190,7 +200,7 @@
             </goals>
           </execution>
         </executions>
-      </plugin>      
+      </plugin>
     </plugins>
   </build>  
 </project>
