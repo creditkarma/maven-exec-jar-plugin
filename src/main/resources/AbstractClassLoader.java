@@ -148,8 +148,12 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
     protected synchronized Class<?> loadClass(
             String className, boolean resolve) throws ClassNotFoundException {
 
-        logFiner("loading class %s and resolve %b", className, resolve);
+        Class<?> clazz = findLoadedClass(className);
+        if (clazz != null) {
+            return clazz;
+        }
 
+        logFiner("loading class %s and resolve %b", className, resolve);
         byte[] b = findClassBytes(className);
 
         // Essential reading:
@@ -158,12 +162,12 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
         Thread.currentThread().setContextClassLoader(this);
 
         if (b != null) {
-            Class<?> clazz = defineClass(className, b, 0, b.length, topDomain);
+            clazz = defineClass(className, b, 0, b.length, topDomain);
             if (resolve) resolveClass(clazz);
             return clazz;
         }
 
-        Class<?> clazz = super.loadClass(className, resolve);
+        clazz = super.loadClass(className, resolve);
         if (resolve) resolveClass(clazz);
         return clazz;
     }
