@@ -229,6 +229,7 @@ public abstract class AbstractClassLoader extends SecureClassLoader {
 
 
     public void invokeMain(String className, String[] args) throws Throwable {
+        Thread.currentThread().setContextClassLoader(this);
 
         Class<?> clazz = loadClass(className);
         logInfo("Starting main method of: %s with ClassLoader=%s",
